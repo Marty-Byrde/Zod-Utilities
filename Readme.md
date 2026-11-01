@@ -39,19 +39,22 @@ const UserSchema = z.object({
   active: z.boolean().default(true),
 })
 
-type User = z.infer<typeof UserSchema>
-const { instantiate, validate, safeParse } = useSchema<User>(UserSchema)
+const { instantiateUser, validateUser, safeParseUser } = useSchema({ UserSchema })
 
-const user = instantiate({ generateRandomNumbers: false })
+const user = instantiateUser({ generateRandomNumbers: false })
 // { name: 'Anonymous', age: 0, active: true }
 
-validate({ name: 'Alex', age: 25, active: true }) // Returns the parsed object; throws on failure.
+validateUser({ name: 'Alex', age: 25, active: true }) // Returns the parsed object; throws on failure.
 
-const result = safeParse({ name: 'Alex', age: 'invalid', active: true })
+const result = safeParseUser({ name: 'Alex', age: 'invalid', active: true })
 console.log(result.success) // false
 ```
 
-`validate` and `safeParse` remove schema defaults before parsing, so defaulted fields still need to be supplied unless they are optional.
+Pass an object containing exactly one schema. Method names are inferred from the object's key, with a trailing `Schema` removed; return types are inferred from the schema. Keys without that suffix are used as-is. An explicit name argument is no longer needed.
+
+`validateUser` and `safeParseUser` remove schema defaults before parsing, so defaulted fields still need to be supplied unless they are optional.
+
+The unnamed API remains available: `useSchema<User>(UserSchema)` returns `instantiate`, `validate`, and `safeParse`, where `User` is `z.infer<typeof UserSchema>`.
 
 `stripZodDefaults` removes `.default()` wrappers recursively while preserving validations, object key policies, tuple rest elements, transforms, codecs, and recursive schemas. Explicit `.optional()`, `.prefault()`, and `.catch()` behavior remains active; stripping defaults does not necessarily make a schema reject `undefined`. The original schema is preserved.
 

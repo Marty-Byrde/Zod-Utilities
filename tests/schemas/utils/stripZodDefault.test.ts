@@ -457,8 +457,8 @@ describe('stripZodDefault: schema graphs and compatibility', () => {
 
   test('exposes the helper through the public alias and useSchema validation', () => {
     expect(stripZodDefaults).toBe(stripZodDefault)
-    const schema = z.strictObject({ name: z.string().default('fallback') }).refine(({ name }) => name !== 'blocked')
-    const utils = useSchema(schema, 'User')
+    const UserSchema = z.strictObject({ name: z.string().default('fallback') }).refine(({ name }) => name !== 'blocked')
+    const utils = useSchema({ UserSchema })
     expect(utils.safeParseUser({}).success).toBe(false)
     expect(utils.safeParseUser({ name: 'blocked' }).success).toBe(false)
     expect(utils.safeParseUser({ name: 'value', extra: 1 }).success).toBe(false)
