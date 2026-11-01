@@ -55,6 +55,10 @@ console.log(result.success) // false
 
 Dummy data generation supports options such as `overrideArraySize`, `generateRandomNumbers`, and whether to instantiate optional or nullable values. Generated values are placeholders and may need adjustment to satisfy schema constraints.
 
+`schemaDefaults` follows [Zod 4 default and prefault semantics](https://zod.dev/api#defaults): defaults return output values directly, while prefaults are parsed. Explicit defaults still apply inside optional fields when optional instantiation is disabled. Transforms, pipes, codecs, intersections, prefaults, and catches use synchronous parsing; they can throw if generated inputs fail validation. Async effects are unsupported.
+
+Set `stripDefaultValues: true` to ignore `.default()` and `.prefault()` values recursively and generate empty UUID placeholders. Catch fallbacks remain active, and the original schema is preserved. Schema types without a generation strategy, including lazy schemas, records, maps, sets, and promises, throw an explicit unsupported-type error.
+
 ## Development
 
 ```sh
