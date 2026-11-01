@@ -5,7 +5,8 @@ TypeScript utilities for working with Zod 4 schemas: generate dummy data, valida
 ## Features
 
 - `useSchema`: bind validation, safe parsing, and dummy data generation to a schema.
-- `stripZodDefault`: recursively remove `.default()` wrappers from supported schema types.
+- `schemaDefaults`: generate default values for a schema.
+- `stripZodDefaults`: recursively remove `.default()` wrappers from supported schema types.
 - `stripEffects`: simplify schemas by removing pipes and transforms, with options to remove built-in checks and omit object keys.
 
 ## Getting started
@@ -20,11 +21,17 @@ pnpm install
 
 ## Usage
 
-The following example uses source imports from the repository root:
+Import the public utilities from the package root:
+
+```ts
+import { schemaDefaults, stripEffects, stripZodDefaults, useSchema } from '@marty-byrde/zod-utilities'
+```
+
+For example:
 
 ```ts
 import { z } from 'zod'
-import { useSchema } from './src/useSchema'
+import { useSchema } from '@marty-byrde/zod-utilities'
 
 const UserSchema = z.object({
   name: z.string().default('Anonymous'),
