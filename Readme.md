@@ -53,6 +53,8 @@ console.log(result.success) // false
 
 `validate` and `safeParse` remove schema defaults before parsing, so defaulted fields still need to be supplied unless they are optional.
 
+`stripZodDefaults` removes `.default()` wrappers recursively while preserving validations, object key policies, tuple rest elements, transforms, codecs, and recursive schemas. Explicit `.optional()`, `.prefault()`, and `.catch()` behavior remains active; stripping defaults does not necessarily make a schema reject `undefined`. The original schema is preserved.
+
 Dummy data generation supports options such as `overrideArraySize`, `generateRandomNumbers`, and whether to instantiate optional or nullable values. Generated values are placeholders and may need adjustment to satisfy schema constraints.
 
 `schemaDefaults` follows [Zod 4 default and prefault semantics](https://zod.dev/api#defaults): defaults return output values directly, while prefaults are parsed. Explicit defaults still apply inside optional fields when optional instantiation is disabled. Transforms, pipes, codecs, intersections, prefaults, and catches use synchronous parsing; they can throw if generated inputs fail validation. Async effects are unsupported.
