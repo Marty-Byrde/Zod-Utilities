@@ -1,328 +1,202 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment,@typescript-eslint/no-explicit-any */
 import { z } from 'zod'
-import { Any } from '@/types'
 
 type StripOptions = {
-  /** Remove only refinements/transforms (effects), or also drop built-in checks like .min/.max/.regex */
+  /** Remove effects only (default), or also remove built-in validation checks. */
   strip?: 'effects-only' | 'all'
-  /** Omit these keys from ALL (nested) ZodObject (e.g., ["correctness"]) */
+  /** Omit these declared keys from every nested object shape. Unknown-key policies still apply. */
   omitKeys?: readonly string[]
 }
 
-type MapTuple<T extends readonly z.ZodTypeAny[]> = { [K in keyof T]: StripEffects<T[K]> }
+type MapSchemas<T extends readonly z.core.SomeType[], Options extends StripOptions> = { [K in keyof T]: T[K] extends z.core.$ZodType ? StripEffects<T[K], Options> : T[K] }
+type OmittedKeys<Options extends StripOptions> = Options extends { omitKeys: readonly (infer Key extends string)[] } ? (string extends Key ? never : Key) : never
+// Object config types retain catchall input/output types, but erase the schema
+// needed to strip them. Avoid claiming its original transformed output survives.
+type StripObjectConfig<Config extends z.core.$ZodObjectConfig> = string extends keyof Config['out'] ? z.core.$catchall<z.ZodUnknown> : Config
 
-export type StripEffects<T extends z.ZodTypeAny> =
-  T extends z.ZodDefault<infer U extends z.ZodTypeAny>
-    ? z.ZodDefault<StripEffects<U>>
-    : T extends z.ZodOptional<infer U extends z.ZodTypeAny>
-      ? z.ZodOptional<StripEffects<U>>
-      : T extends z.ZodNullable<infer U extends z.ZodTypeAny>
-        ? z.ZodNullable<StripEffects<U>>
-        : T extends z.ZodCatch<infer U extends z.ZodTypeAny>
-          ? z.ZodCatch<StripEffects<U>>
-          : T extends z.ZodReadonly<infer U extends z.ZodTypeAny>
-            ? z.ZodReadonly<StripEffects<U>>
-            : T extends z.ZodPipe<infer In, infer Out>
-              ? In extends z.ZodTypeAny
-                ? StripEffects<In>
-                : Out extends z.ZodTypeAny
-                  ? StripEffects<Out>
-                  : T
-              : T extends z.ZodObject<infer Shape extends z.ZodRawShape, infer Config>
-                ? z.ZodObject<{ [K in keyof Shape]: Shape[K] extends z.ZodTypeAny ? StripEffects<Shape[K]> : Shape[K] }, Config>
-                : T extends z.ZodArray<infer U extends z.ZodTypeAny>
-                  ? z.ZodArray<StripEffects<U>>
-                  : T extends z.ZodTuple<infer Items>
-                    ? Items extends readonly z.ZodTypeAny[]
-                      ? z.ZodTuple<MapTuple<Items>>
-                      : T
-                    : T extends z.ZodUnion<infer Options>
-                      ? Options extends readonly z.ZodTypeAny[]
-                        ? z.ZodUnion<MapTuple<Options>>
-                        : T
-                      : T extends z.ZodIntersection<infer A extends z.ZodTypeAny, infer B extends z.ZodTypeAny>
-                        ? z.ZodIntersection<StripEffects<A>, StripEffects<B>>
-                        : T
+// Defaults and catches return output values directly, which may have a different
+// type from the input schema that remains after removing a transform.
+type WithFallback<Original extends z.core.$ZodType, Stripped extends z.ZodType> =
+  z.output<Original> extends z.output<Stripped> ? Stripped : Omit<Stripped, keyof z.ZodType> & z.ZodType<z.output<Original> | z.output<Stripped>, z.input<Stripped>>
 
-export function stripEffects<T extends z.ZodTypeAny>(schema: T, opts: StripOptions = {}): StripEffects<T> {
-  const strip = opts.strip ?? 'effects-only'
+export type StripEffects<T extends z.core.$ZodType, Options extends StripOptions = {}> =
+  T extends z.ZodPipe<infer In extends z.core.$ZodType, infer Out extends z.core.$ZodType>
+    ? StripEffects<In extends z.core.$ZodTransform ? Out : In, Options>
+    : T extends z.core.$ZodTransform | z.core.$ZodCustom
+      ? z.ZodUnknown
+      : T extends z.ZodObject<infer Shape, infer Config>
+        ? z.ZodObject<{ [K in keyof Shape as K extends OmittedKeys<Options> ? never : K]: StripEffects<Shape[K], Options> }, StripObjectConfig<Config>>
+        : T extends z.ZodArray<infer Inner extends z.core.$ZodType>
+          ? z.ZodArray<StripEffects<Inner, Options>>
+          : T extends z.ZodDefault<infer Inner extends z.core.$ZodType>
+            ? WithFallback<T, z.ZodDefault<StripEffects<Inner, Options>>>
+            : T extends z.ZodCatch<infer Inner extends z.core.$ZodType>
+              ? WithFallback<T, z.ZodCatch<StripEffects<Inner, Options>>>
+              : T extends z.ZodOptional<infer Inner extends z.core.$ZodType>
+                ? z.ZodOptional<StripEffects<Inner, Options>>
+                : T extends z.ZodNullable<infer Inner extends z.core.$ZodType>
+                  ? z.ZodNullable<StripEffects<Inner, Options>>
+                  : T extends z.ZodPrefault<infer Inner extends z.core.$ZodType>
+                    ? z.ZodPrefault<StripEffects<Inner, Options>>
+                    : T extends z.ZodReadonly<infer Inner extends z.core.$ZodType>
+                      ? z.ZodReadonly<StripEffects<Inner, Options>>
+                      : T extends z.ZodNonOptional<infer Inner extends z.core.$ZodType>
+                        ? z.ZodNonOptional<StripEffects<Inner, Options>>
+                        : T extends z.ZodSuccess<infer Inner extends z.core.$ZodType>
+                          ? z.ZodSuccess<StripEffects<Inner, Options>>
+                          : T extends z.ZodDiscriminatedUnion<infer Members, infer Discriminator>
+                            ? Discriminator extends OmittedKeys<Options>
+                              ? z.ZodUnion<MapSchemas<Members, Options>>
+                              : z.ZodDiscriminatedUnion<MapSchemas<Members, Options>, Discriminator>
+                            : T extends z.ZodUnion<infer Members>
+                              ? z.ZodUnion<MapSchemas<Members, Options>>
+                              : T extends z.ZodTuple<infer Items, infer Rest>
+                                ? z.ZodTuple<MapSchemas<Items, Options>, Rest extends z.core.$ZodType ? StripEffects<Rest, Options> : null>
+                                : T extends z.ZodIntersection<infer Left extends z.core.$ZodType, infer Right extends z.core.$ZodType>
+                                  ? z.ZodIntersection<StripEffects<Left, Options>, StripEffects<Right, Options>>
+                                  : T extends z.ZodRecord<infer Key extends z.core.$ZodRecordKey, infer Value extends z.core.$ZodType>
+                                    ? z.ZodRecord<Extract<StripEffects<Key, Options>, z.core.$ZodRecordKey>, StripEffects<Value, Options>>
+                                    : T extends z.ZodMap<infer Key extends z.core.$ZodType, infer Value extends z.core.$ZodType>
+                                      ? z.ZodMap<StripEffects<Key, Options>, StripEffects<Value, Options>>
+                                      : T extends z.ZodSet<infer Inner extends z.core.$ZodType>
+                                        ? z.ZodSet<StripEffects<Inner, Options>>
+                                        : T extends z.ZodLazy<infer Inner extends z.core.$ZodType>
+                                          ? z.ZodLazy<StripEffects<Inner, Options>>
+                                          : T extends z.ZodPromise<infer Inner extends z.core.$ZodType>
+                                            ? z.ZodPromise<StripEffects<Inner, Options>>
+                                            : T extends z.ZodFunction<infer In extends z.core.$ZodFunctionIn, infer Out extends z.core.$ZodType>
+                                              ? z.ZodFunction<StripEffects<In, Options>, StripEffects<Out, Options>>
+                                              : Options extends { strip: 'all' }
+                                                ? T extends z.ZodStringFormat
+                                                  ? z.ZodString
+                                                  : T extends z.ZodNumberFormat
+                                                    ? z.ZodNumber
+                                                    : T extends z.ZodBigIntFormat
+                                                      ? z.ZodBigInt
+                                                      : T
+                                                : T
+
+/**
+ * Recursively removes refinements, transforms and overwrite checks without mutating
+ * the source. Built-in checks remain unless `strip: 'all'` is selected. Coercion,
+ * defaults, prefaults, catch fallbacks, readonly and object key policies are retained.
+ *
+ * Pipes (including codecs) reduce to their input schema; preprocessors reduce to
+ * their output schema. Standalone transforms/custom predicates become `z.unknown()`
+ * because they have no underlying schema. Tuple rest elements and recursive schemas
+ * are traversed too. Omitted keys are removed from shapes, not from input values.
+ */
+export function stripEffects<T extends z.ZodType, const Options extends StripOptions = {}>(schema: T, opts: Options = {} as Options): StripEffects<T, Options> {
   const omitSet = new Set(opts.omitKeys ?? [])
-  const memo = new WeakMap<z.ZodTypeAny, z.ZodTypeAny>()
+  const memo = new WeakMap<z.core.$ZodType, z.core.$ZodType>()
 
-  const getDef = (s: any) => s?._zod?.def ?? s?.def ?? s?._def
-  const getType = (s: any): string | undefined => {
-    const def = getDef(s)
-    return typeof def?.type === 'string' ? def.type : undefined
-  }
-  const unwrapInner = (s: any) => {
-    const def = getDef(s)
-    return def?.innerType ?? def?.inner ?? def?.schema
-  }
-
-  const copyUnknownKeysAndCatchall = (src: any, dest: any) => {
-    const def = getDef(src)
-    // unknown key policy
-    const uk = def?.unknownKeys
-    if (uk === 'passthrough' && typeof dest.passthrough === 'function') dest = dest.passthrough()
-    if (uk === 'strict' && typeof dest.strict === 'function') dest = dest.strict()
-
-    // catchall
-    const catchall = def?.catchall
-    if (catchall && getType(catchall) !== 'never' && typeof dest.catchall === 'function') {
-      dest = dest.catchall(go(catchall))
-    }
-
-    return dest
+  const cloneWith = (source: z.core.$ZodType, overrides: object, base = source): z.core.$ZodType => {
+    // Preserve descriptors so default/prefault factories aren't evaluated here.
+    const definition = Object.create(Object.getPrototypeOf(source._zod.def), {
+      ...Object.getOwnPropertyDescriptors(source._zod.def),
+      ...Object.getOwnPropertyDescriptors(overrides),
+    })
+    const result = z.core.clone(base, definition, { parent: true })
+    result._zod.parent = source
+    return result
   }
 
-  const go = (s: z.ZodTypeAny): z.ZodTypeAny => {
-    const cached = memo.get(s)
+  const visit = (source: z.core.$ZodType): z.core.$ZodType => {
+    const cached = memo.get(source)
     if (cached) return cached
 
-    const type = getType(s)
+    const def = (source as z.core.$ZodTypes)._zod.def
+    const checks =
+      opts.strip === 'all'
+        ? []
+        : (def.checks ?? [])
+            .filter((check) => !['custom', 'overwrite'].includes(check._zod.def.check))
+            .map((check) => {
+              if (check._zod.def.check !== 'property') return check
+              const property = (check as z.core.$ZodCheckProperty)._zod.def
+              return new z.core.$ZodCheckProperty({ ...property, schema: visit(property.schema) })
+            })
+    const clone = (overrides: object = {}) => cloneWith(source, { checks, ...overrides })
+    let result: z.core.$ZodType
 
-    if (type === 'transform') {
-      const inner = unwrapInner(s)
-      const out = go(inner)
-      memo.set(s, out)
-      return out
-    }
-
-    if (type === 'pipe') {
-      const def = getDef(s)
-      const input = def?.in ?? def?.input ?? def?.left
-      const output = def?.out ?? def?.output ?? def?.right ?? def?.to
-      if (input && output && typeof (z as any).pipe === 'function') {
-        const out = go(input)
-        memo.set(s, out)
-        return out
-      }
-
-      if (output) {
-        const out = go(output)
-        memo.set(s, out)
-        return out
-      }
-      const inner = unwrapInner(s)
-      const out = go(inner)
-      memo.set(s, out)
-      return out
-    }
-
-    if (type === 'optional') {
-      const inner = unwrapInner(s)
-      const out = go(inner).optional()
-      memo.set(s, out)
-      return out
-    }
-
-    if (type === 'nullable') {
-      const inner = unwrapInner(s)
-      const out = go(inner).nullable()
-      memo.set(s, out)
-      return out
-    }
-
-    if (type === 'default') {
-      const def = getDef(s)
-      const inner = unwrapInner(s)
-      const stripped = go(inner)
-      const out = stripped.default(def?.defaultValue)
-      memo.set(s, out)
-      return out
-    }
-
-    if (type === 'catch') {
-      const def = getDef(s)
-      const inner = unwrapInner(s)
-      const base = go(inner)
-      const out = (base as any).catch(def?.catchValue)
-      memo.set(s, out)
-      return out
-    }
-
-    if (type === 'readonly') {
-      const inner = unwrapInner(s)
-      const base = go(inner)
-      const out = (base as any).readonly()
-      memo.set(s, out)
-      return out
-    }
-
-    if (type === 'object') {
-      const def = getDef(s)
-      const shape = (s as any).shape ?? def?.shape
-      const newShape: Record<string, z.ZodTypeAny> = {}
-
-      if (shape && typeof shape === 'object' && !Array.isArray(shape)) {
-        for (const [k, v] of Object.entries(shape)) {
-          if (!omitSet.has(k)) newShape[k] = go(v as any)
+    switch (def.type) {
+      case 'transform':
+      case 'custom':
+        result = cloneWith(source, { type: 'unknown', checks: [] }, z.unknown())
+        break
+      case 'pipe':
+        // .transform() puts the transform on the right; preprocess puts it on the left.
+        result = visit(def.in._zod.def.type === 'transform' ? def.out : def.in)
+        break
+      case 'object': {
+        const shape: Record<PropertyKey, z.core.$ZodType> = Object.create(null)
+        const originalShape = def.shape
+        for (const key of Reflect.ownKeys(originalShape)) {
+          if (typeof key === 'string' && omitSet.has(key)) continue
+          Object.defineProperty(shape, key, {
+            enumerable: true,
+            configurable: true,
+            // Recursive object getters must be visited after memoizing this object.
+            get: () => visit(originalShape[key as keyof typeof originalShape]!),
+          })
         }
-      } else if (Array.isArray(shape)) {
-        for (const p of shape) {
-          if (!omitSet.has(p.key)) newShape[p.key] = go(p.value)
-        }
+        result = clone({ shape, catchall: def.catchall ? visit(def.catchall) : undefined })
+        break
       }
-
-      let out: any = z.object(newShape)
-      out = copyUnknownKeysAndCatchall(s, out)
-      memo.set(s, out)
-      return out
-    }
-
-    if (type === 'array') {
-      const def = getDef(s)
-      const element = (s as any).element ?? def?.element ?? def?.items
-      let out = z.array(go(element))
-
-      if (strip !== 'all') {
-        // re-apply default and catch value is they exist
-        if (def?.defaultValue) out = out.default(def.defaultValue) as Any
-        if (def?.catch) out = out.catch(def.catch) as Any
-
-        memo.set(s, out)
-        return out
+      case 'array':
+        result = clone({ element: visit(def.element) })
+        break
+      case 'optional':
+      case 'nullable':
+      case 'default':
+      case 'prefault':
+      case 'catch':
+      case 'readonly':
+      case 'nonoptional':
+      case 'success':
+      case 'promise':
+        result = clone({ innerType: visit(def.innerType) })
+        break
+      case 'tuple':
+        result = clone({ items: def.items.map(visit), rest: def.rest ? visit(def.rest) : null })
+        break
+      case 'union': {
+        // Discriminated unions also have type "union" in Zod 4.
+        const options = def.options.map(visit)
+        const discriminator = 'discriminator' in def ? def.discriminator : undefined
+        // Once its discriminator is omitted, the alternatives form an ordinary union.
+        result = typeof discriminator === 'string' && omitSet.has(discriminator) ? cloneWith(source, { checks, options, discriminator: undefined }, z.union([])) : clone({ options })
+        break
       }
-
-      memo.set(s, out)
-      return out
+      case 'intersection':
+        result = clone({ left: visit(def.left), right: visit(def.right) })
+        break
+      case 'record':
+      case 'map':
+        result = clone({ keyType: visit(def.keyType), valueType: visit(def.valueType) })
+        break
+      case 'set':
+        result = clone({ valueType: visit(def.valueType) })
+        break
+      case 'lazy':
+        result = clone({ getter: () => visit(def.getter()), _cachedInner: undefined })
+        break
+      case 'function':
+        result = clone({ input: visit(def.input), output: visit(def.output) })
+        break
+      case 'template_literal':
+        result = clone({ parts: def.parts.map((part) => (typeof part === 'object' && part !== null ? visit(part) : part)) })
+        break
+      default: {
+        // Format schemas (e.g. z.email(), z.int()) run an intrinsic check that
+        // isn't in def.checks. Use the base constructor when dropping all checks.
+        const base = opts.strip === 'all' ? { string: z.string, number: z.number, bigint: z.bigint }[def.type as 'string' | 'number' | 'bigint']?.() : undefined
+        result = base ? cloneWith(source, { checks, format: undefined }, base) : clone()
+      }
     }
 
-    if (type === 'tuple') {
-      const def = getDef(s)
-      const items = (def?.items ?? def?.prefixItems ?? []) as z.ZodTypeAny[]
-      const strippedItems = items.map(go)
-      // @ts-ignore - z.tuple wants a tuple type at compile time
-      const out = z.tuple(strippedItems)
-      memo.set(s, out)
-      return out
-    }
-
-    if (type === 'union') {
-      const def = getDef(s)
-      const options = (def?.options ?? def?.elements ?? []) as z.ZodTypeAny[]
-      const strippedOptions = options.map(go)
-      // @ts-ignore - z.union wants a tuple type at compile time
-      const out = z.union(strippedOptions)
-      memo.set(s, out)
-      return out
-    }
-
-    if (type === 'discriminated_union') {
-      const def = getDef(s)
-      const discriminator = def?.discriminator
-      const options = (def?.options ?? def?.elements ?? []) as z.ZodTypeAny[]
-      const strippedOptions = options.map(go)
-      // Zod requires a tuple in typings; runtime accepts array.
-      const out = (z as any).discriminatedUnion(discriminator, strippedOptions)
-      memo.set(s, out)
-      return out
-    }
-
-    if (type === 'intersection') {
-      const def = getDef(s)
-      const out = z.intersection(go(def?.left), go(def?.right))
-      memo.set(s, out)
-      return out
-    }
-
-    if (type === 'record') {
-      const def = getDef(s)
-      const key = def?.keyType ?? def?.key
-      const value = def?.valueType ?? def?.value
-      const out = z.record(go(key) as any, go(value))
-      memo.set(s, out)
-      return out
-    }
-
-    if (type === 'map') {
-      const def = getDef(s)
-      const out = z.map(go(def?.keyType), go(def?.valueType))
-      memo.set(s, out)
-      return out
-    }
-
-    if (type === 'set') {
-      const def = getDef(s)
-      const out = z.set(go(def?.valueType))
-      memo.set(s, out)
-      return out
-    }
-
-    if (type === 'lazy') {
-      const def = getDef(s)
-      const getter = def?.getter ?? def?.get
-      const out = z.lazy(() => go(getter()))
-      memo.set(s, out)
-      return out
-    }
-
-    if (type === 'promise') {
-      const def = getDef(s)
-      const inner = def?.type ?? def?.innerType ?? unwrapInner(s)
-      const out = z.promise(go(inner))
-      memo.set(s, out)
-      return out
-    }
-
-    if (type === 'string') {
-      const out = strip === 'all' ? z.string() : s
-      memo.set(s, out)
-      return out
-    }
-    if (type === 'number') {
-      const out = strip === 'all' ? z.number() : s
-      memo.set(s, out)
-      return out
-    }
-    if (type === 'bigint') {
-      const out = strip === 'all' ? z.bigint() : s
-      memo.set(s, out)
-      return out
-    }
-    if (type === 'date') {
-      const out = strip === 'all' ? z.date() : s
-      memo.set(s, out)
-      return out
-    }
-
-    if (type === 'boolean') {
-      memo.set(s, strip === 'all' ? z.boolean() : s)
-      return memo.get(s)!
-    }
-    if (type === 'any') {
-      memo.set(s, z.any())
-      return memo.get(s)!
-    }
-    if (type === 'unknown') {
-      memo.set(s, z.unknown())
-      return memo.get(s)!
-    }
-    if (type === 'null') {
-      memo.set(s, z.null())
-      return memo.get(s)!
-    }
-    if (type === 'undefined') {
-      memo.set(s, z.undefined())
-      return memo.get(s)!
-    }
-    if (type === 'never') {
-      memo.set(s, z.never())
-      return memo.get(s)!
-    }
-    if (type === 'void') {
-      memo.set(s, z.void())
-      return memo.get(s)!
-    }
-
-    if (type === 'literal' || type === 'enum' || type === 'native_enum') {
-      memo.set(s, s)
-      return s
-    }
-
-    if (s !== undefined) memo.set(s, s)
-    return s
+    memo.set(source, result)
+    return result
   }
 
-  return go(schema) as any
+  return visit(schema) as StripEffects<T, Options>
 }
