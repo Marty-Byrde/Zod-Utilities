@@ -1,0 +1,38 @@
+/node_modules
+/.idea
+*.iml
+
+/dist
+/docs
+
+# Currently only used for testing and exploration purposes.
+/web
+/modules
+/custom-api
+
+tests.ts
+tests/example.test.ts
+
+# Ignore local and/or temporary data files
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!tsconfig.build.json
+!.prettierrc.json
+!typedoc.json
+!.releaserc.json
+!.npmrc.json
+
+# Ignore Coverage files
+coverage
+
+
+# Ignore sensitive content
+.env
+.github_secrets
+.actrc
+
+
+
+**/.DS_Store

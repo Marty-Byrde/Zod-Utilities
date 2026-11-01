@@ -1,0 +1,124 @@
+name: Publish Package
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: "Existing release tag to publish, e.g. v1.2.3 or v1.2.3-canary.1"
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to publish, e.g. v1.2.3 or v1.2.3-canary.1"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: publish-package-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  publish-package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Determine package version and distribution tag
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-canary\.[0-9]+)?$ ]]; then
+            echo "::error::Expected a release tag such as v1.2.3 or v1.2.3-canary.1"
+            exit 1
+          fi
+
+          VERSION="${RELEASE_TAG#v}"
+
+          if [[ "$VERSION" == *-canary.* ]]; then
+            DIST_TAG="canary"
+          else
+            DIST_TAG="latest"
+          fi
+
+          echo "NEW_VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "DIST_TAG=$DIST_TAG" >> "$GITHUB_ENV"
+          echo "Release version: $VERSION (npm tag: $DIST_TAG)"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          fetch-depth: 0
+
+      - name: Set up Node 24.22.1
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.22.1
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@marty-byrde"
+
+      - name: Check if version is already published
+        id: check_published
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+          PACKAGE_SPEC="${PACKAGE_NAME}@${NEW_VERSION}"
+
+          echo "Checking $PACKAGE_SPEC"
+
+          ERROR_FILE=$(mktemp)
+          trap 'rm -f "$ERROR_FILE"' EXIT
+
+          if PUBLISHED_VERSION=$(npm view "$PACKAGE_SPEC" version \
+            --json \
+            --registry=https://npm.pkg.github.com \
+            2>"$ERROR_FILE"); then
+
+            # Validate that the registry returned the requested version.
+            if ! PUBLISHED_VERSION="$PUBLISHED_VERSION" node -e '
+              const version = JSON.parse(process.env.PUBLISHED_VERSION);
+              if (version !== process.env.NEW_VERSION) process.exit(1);
+            '; then
+              echo "::error::Unexpected registry response for $PACKAGE_SPEC"
+              exit 1
+            fi
+
+            echo "VERSION_ALREADY_PUBLISHED=true" >> "$GITHUB_ENV"
+            echo "Version $NEW_VERSION is already published"
+
+          elif grep -Eq '^npm (error|ERR!) code E404' "$ERROR_FILE"; then
+            echo "VERSION_ALREADY_PUBLISHED=false" >> "$GITHUB_ENV"
+            echo "Version $NEW_VERSION was not found"
+
+          else
+            echo "::error::Failed to check package version $PACKAGE_SPEC"
+            cat "$ERROR_FILE"
+            exit 1
+          fi
+
+      - name: Set up pnpm
+        if: env.VERSION_ALREADY_PUBLISHED == 'false'
+        uses: pnpm/action-setup@v6
+        with:
+          version: "12.16.1"
+
+      - name: Install Dependencies
+        if: env.VERSION_ALREADY_PUBLISHED == 'false'
+        run: pnpm i --frozen-lockfile
+
+      - name: Set Package version
+        if: env.VERSION_ALREADY_PUBLISHED == 'false'
+        run: npm version "$NEW_VERSION" --no-git-tag-version --allow-same-version
+
+      - name: Publish package
+        if: env.VERSION_ALREADY_PUBLISHED == 'false'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Publishing $NEW_VERSION with npm tag $DIST_TAG"
+          npm publish --tag "$DIST_TAG" --registry=https://npm.pkg.github.com

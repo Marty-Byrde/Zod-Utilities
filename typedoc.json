@@ -1,0 +1,8 @@
+{
+  "name": "Zod-Utilities",
+  "entryPoints": ["./"],
+  "entryPointStrategy": "expand",
+  "exclude": ["node_modules/**/*", "dist/**/*", "docs/**/*", "tests/**/*", "jest.*"],
+  "readme": "./Readme.md",
+  "plugin": ["typedoc-plugin-include-example", "typedoc-plugin-include-example", "typedoc-plugin-rename-defaults"]
+}

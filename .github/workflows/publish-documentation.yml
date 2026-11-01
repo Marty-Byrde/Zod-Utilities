@@ -1,0 +1,49 @@
+name: "Publish Documentation"
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  pages: write
+  id-token: write
+
+jobs:
+  publish-documentation:
+    runs-on: ubuntu-latest
+
+    environment:
+      name: "documentation"
+      url: ${{ steps.deployment.outputs.page_url}}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node 24.22.1
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.22.1
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: "12.16.1"
+
+      - name: Install Dependencies
+        run: pnpm i --frozen-lockfile
+
+      - name: Generate Documentation
+        run: |
+          npm run docs
+
+      - name: Upload Documentation to GitHub Pages
+        id: "upload-documentation"
+        uses: "actions/upload-pages-artifact@v3"
+        with:
+          path: "docs/"
+
+      - name: Deploy Documentation to GitHub Pages
+        id: "deployment"
+        uses: "actions/deploy-pages@v4"

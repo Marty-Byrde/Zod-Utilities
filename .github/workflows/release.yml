@@ -1,0 +1,74 @@
+name: Release and Publish Package
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  semantic-versioning:
+    name: Create Release
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node 24.22.1
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.22.1
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: "12.16.1"
+
+      - name: Install dependencies
+        run: pnpm i --frozen-lockfile
+
+      - name: Run semantic-release
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { appendFileSync } from 'node:fs';
+          import semanticRelease from 'semantic-release';
+
+          const result = await semanticRelease();
+          if (result) {
+            appendFileSync(process.env.GITHUB_OUTPUT, `tag=${result.nextRelease.gitTag}\n`);
+          } else {
+            console.log('No release created; package publishing will be skipped.');
+          }
+          NODE
+
+  publish-package:
+    name: Publish Package
+    needs: semantic-versioning
+    if: needs.semantic-versioning.outputs.tag != ''
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/publish-package.yml
+    with:
+      tag: ${{ needs.semantic-versioning.outputs.tag }}
