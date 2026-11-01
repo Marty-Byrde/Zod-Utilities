@@ -1,20 +1,20 @@
 import { describe } from '@jest/globals'
 import { z } from 'zod'
-import schemaDefaults, { DEFAULT_ARRAY_SIZE } from '@/src/schemaDefaults'
+import { instantiateSchema, DEFAULT_ARRAY_SIZE } from '@/src/instantiateSchema'
 
 afterEach(() => {
   jest.restoreAllMocks()
   jest.useRealTimers()
 })
 
-describe('schemaDefaults: original behavior', () => {
+describe('instantiateSchema: original behavior', () => {
   test('check that numerical values have their default values or 0', () => {
     const schema = z.object({
       id: z.number().default(1),
       price: z.number(),
     })
 
-    const dummyInstance = schemaDefaults(schema, { generateRandomNumbers: false })
+    const dummyInstance = instantiateSchema(schema, { generateRandomNumbers: false })
 
     expect(dummyInstance).toEqual({
       id: 1,
@@ -28,7 +28,7 @@ describe('schemaDefaults: original behavior', () => {
       code: z.string(),
     })
 
-    const dummyInstance = schemaDefaults(schema)
+    const dummyInstance = instantiateSchema(schema)
 
     expect(dummyInstance).toEqual({
       name: 'Article-XY',
@@ -42,7 +42,7 @@ describe('schemaDefaults: original behavior', () => {
       disabled: z.boolean(),
     })
 
-    const dummyInstance = schemaDefaults(schema)
+    const dummyInstance = instantiateSchema(schema)
 
     expect(dummyInstance).toEqual({
       enabled: true,
@@ -56,7 +56,7 @@ describe('schemaDefaults: original behavior', () => {
       comments: z.array(z.string()),
     })
 
-    const dummyInstance = schemaDefaults(schema)
+    const dummyInstance = instantiateSchema(schema)
 
     expect(dummyInstance).toEqual({
       defaultComments: ['comment1', 'comment2'],
@@ -70,7 +70,7 @@ describe('schemaDefaults: original behavior', () => {
       undefinedValue: z.undefined(),
     })
 
-    const dummyInstance = schemaDefaults(schema)
+    const dummyInstance = instantiateSchema(schema)
 
     expect(dummyInstance).toEqual({
       nullValue: null,
@@ -83,7 +83,7 @@ describe('schemaDefaults: original behavior', () => {
       nullableValue: z.string().nullable(),
     })
 
-    const dummyInstance = schemaDefaults(schema, { instantiate_Nullable_PrimitiveProps: false })
+    const dummyInstance = instantiateSchema(schema, { instantiate_Nullable_PrimitiveProps: false })
 
     expect(dummyInstance).toEqual({
       nullableValue: null,
@@ -95,7 +95,7 @@ describe('schemaDefaults: original behavior', () => {
       unknownValue: z.unknown(),
     })
 
-    const dummyInstance = schemaDefaults(schema, { instantiate_Optional_PrimitiveProps: false })
+    const dummyInstance = instantiateSchema(schema, { instantiate_Optional_PrimitiveProps: false })
 
     expect(dummyInstance).toEqual({
       unknownValue: undefined,
@@ -107,7 +107,7 @@ describe('schemaDefaults: original behavior', () => {
       catchValue: z.string().catch('catchValue'),
     })
 
-    const dummyInstance = schemaDefaults(schema)
+    const dummyInstance = instantiateSchema(schema)
 
     expect(dummyInstance).toEqual({
       catchValue: 'catchValue',
@@ -123,7 +123,7 @@ describe('schemaDefaults: original behavior', () => {
         .optional(),
     })
 
-    const dummyInstance = schemaDefaults(schema, { instantiate_Optional_Objects: false })
+    const dummyInstance = instantiateSchema(schema, { instantiate_Optional_Objects: false })
 
     expect(dummyInstance).toEqual({
       object: undefined,
@@ -139,7 +139,7 @@ describe('schemaDefaults: original behavior', () => {
         .optional(),
     })
 
-    const dummyInstance = schemaDefaults(schema, { instantiate_Optional_Objects: true })
+    const dummyInstance = instantiateSchema(schema, { instantiate_Optional_Objects: true })
 
     expect(dummyInstance).toEqual({
       object: {
@@ -158,7 +158,7 @@ describe('schemaDefaults: original behavior', () => {
       exampleOptional: z.string().optional(),
     })
 
-    const dummyInstance = schemaDefaults(schema, { instantiate_Optional_Objects: true, instantiate_Optional_PrimitiveProps: false })
+    const dummyInstance = instantiateSchema(schema, { instantiate_Optional_Objects: true, instantiate_Optional_PrimitiveProps: false })
 
     expect(dummyInstance).toEqual({
       object: {
@@ -173,7 +173,7 @@ describe('schemaDefaults: original behavior', () => {
       array: z.array(z.string()).optional(),
     })
 
-    const dummyInstance = schemaDefaults(schema, { instantiate_Optional_Objects: false })
+    const dummyInstance = instantiateSchema(schema, { instantiate_Optional_Objects: false })
 
     expect(dummyInstance).toEqual({
       array: undefined,
@@ -185,7 +185,7 @@ describe('schemaDefaults: original behavior', () => {
       array: z.array(z.string()).optional(),
     })
 
-    const dummyInstance = schemaDefaults(schema, { instantiate_Optional_Objects: true })
+    const dummyInstance = instantiateSchema(schema, { instantiate_Optional_Objects: true })
 
     expect(dummyInstance).toEqual({
       array: Array.from({ length: DEFAULT_ARRAY_SIZE }).map(() => ''),
@@ -197,53 +197,53 @@ describe('schemaDefaults: original behavior', () => {
       notImplemented: z.lazy(() => z.string()),
     })
 
-    expect(() => schemaDefaults(schema)).toThrow('[SchemaDefaults]: Unsupported type lazy')
+    expect(() => instantiateSchema(schema)).toThrow('[InstantiateSchema]: Unsupported type lazy')
   })
 })
 
-describe('schemaDefaults: Zod 4 defaults and prefaults', () => {
+describe('instantiateSchema: Zod 4 defaults and prefaults', () => {
   test.each([0, false, '', null])('preserves the explicit default %p', (value) => {
-    expect(schemaDefaults(z.unknown().default(value))).toBe(value)
+    expect(instantiateSchema(z.unknown().default(value))).toBe(value)
   })
 
   test('evaluates a default factory once for each generated value', () => {
     let counter = 0
     const factory = jest.fn(() => ++counter)
     const schema = z.number().default(factory)
-    expect(schemaDefaults(z.array(schema), { overrideArraySize: 2 })).toEqual([1, 2])
-    expect(schemaDefaults(schema)).toBe(3)
+    expect(instantiateSchema(z.array(schema), { overrideArraySize: 2 })).toEqual([1, 2])
+    expect(instantiateSchema(schema)).toBe(3)
     expect(factory).toHaveBeenCalledTimes(3)
   })
 
   test('does not invoke a function returned by a default factory', () => {
     const value = jest.fn(() => 'callable default')
     const schema = z.custom<() => string>().default(() => value)
-    expect(schemaDefaults(schema)).toBe(value)
+    expect(instantiateSchema(schema)).toBe(value)
     expect(value).not.toHaveBeenCalled()
   })
 
   test('defaults short-circuit parsing, whereas prefaults are parsed', () => {
     const transform = jest.fn((value: string) => value.length)
     const base = z.string().transform(transform)
-    expect(schemaDefaults(base.default(42))).toBe(42)
+    expect(instantiateSchema(base.default(42))).toBe(42)
     expect(transform).not.toHaveBeenCalled()
-    expect(schemaDefaults(base.prefault('tuna'))).toBe(4)
+    expect(instantiateSchema(base.prefault('tuna'))).toBe(4)
     expect(transform).toHaveBeenCalledTimes(1)
   })
 
   test('preserves unparsed object defaults and parses partial object prefaults', () => {
     const base = z.object({ name: z.string().default('Tuna'), count: z.number().default(2) })
-    expect(schemaDefaults(base.default({ name: 'Salmon', count: 7 }))).toEqual({ name: 'Salmon', count: 7 })
-    expect(schemaDefaults(base.prefault({}))).toEqual({ name: 'Tuna', count: 2 })
-    expect(schemaDefaults(z.string().trim().toUpperCase().default('  tuna  '))).toBe('  tuna  ')
-    expect(schemaDefaults(z.string().trim().toUpperCase().prefault('  tuna  '))).toBe('TUNA')
+    expect(instantiateSchema(base.default({ name: 'Salmon', count: 7 }))).toEqual({ name: 'Salmon', count: 7 })
+    expect(instantiateSchema(base.prefault({}))).toEqual({ name: 'Tuna', count: 2 })
+    expect(instantiateSchema(z.string().trim().toUpperCase().default('  tuna  '))).toBe('  tuna  ')
+    expect(instantiateSchema(z.string().trim().toUpperCase().prefault('  tuna  '))).toBe('TUNA')
   })
 
   test('prefault factories run once per invocation', () => {
     const factory = jest.fn(() => '  tuna  ')
     const schema = z.string().trim().prefault(factory)
-    expect(schemaDefaults(schema)).toBe('tuna')
-    expect(schemaDefaults(schema)).toBe('tuna')
+    expect(instantiateSchema(schema)).toBe('tuna')
+    expect(instantiateSchema(schema)).toBe('tuna')
     expect(factory).toHaveBeenCalledTimes(2)
   })
 
@@ -255,7 +255,7 @@ describe('schemaDefaults: Zod 4 defaults and prefaults', () => {
       object: z.object({ name: z.string() }).default({ name: 'default' }).readonly().optional(),
       absent: z.string().optional(),
     })
-    expect(schemaDefaults(schema, { instantiate_Optional_PrimitiveProps: false, instantiate_Optional_Objects: false })).toStrictEqual({
+    expect(instantiateSchema(schema, { instantiate_Optional_PrimitiveProps: false, instantiate_Optional_Objects: false })).toStrictEqual({
       innerDefault: 'inner',
       outerDefault: 'outer',
       prefault: 'value',
@@ -266,13 +266,13 @@ describe('schemaDefaults: Zod 4 defaults and prefaults', () => {
 
   test('uses Zod optional semantics for defaults in union branches', () => {
     const schema = z.union([z.string().default('tuna'), z.number()]).optional()
-    expect(schemaDefaults(schema, { instantiate_Optional_PrimitiveProps: false })).toEqual(schema.parse(undefined))
+    expect(instantiateSchema(schema, { instantiate_Optional_PrimitiveProps: false })).toEqual(schema.parse(undefined))
   })
 
   test('nullable and outer optional wrappers retain their configured absence values', () => {
-    expect(schemaDefaults(z.string().default('default').nullable(), { instantiate_Nullable_PrimitiveProps: false })).toBeNull()
-    expect(schemaDefaults(z.string().nullable().optional(), { instantiate_Optional_PrimitiveProps: false })).toBeUndefined()
-    expect(schemaDefaults(z.string().optional().nullable(), { instantiate_Nullable_PrimitiveProps: false })).toBeNull()
+    expect(instantiateSchema(z.string().default('default').nullable(), { instantiate_Nullable_PrimitiveProps: false })).toBeNull()
+    expect(instantiateSchema(z.string().nullable().optional(), { instantiate_Optional_PrimitiveProps: false })).toBeUndefined()
+    expect(instantiateSchema(z.string().optional().nullable(), { instantiate_Nullable_PrimitiveProps: false })).toBeNull()
   })
 
   test('strips defaults and prefaults recursively without evaluating their factories', () => {
@@ -285,7 +285,7 @@ describe('schemaDefaults: Zod 4 defaults and prefaults', () => {
       nested: z.object({ name: z.string().default('nested') }).prefault({}),
       optional: z.string().default('optional').optional(),
     })
-    expect(schemaDefaults(schema, { stripDefaultValues: true, generateRandomNumbers: false, overrideArraySize: 2 })).toEqual({
+    expect(instantiateSchema(schema, { stripDefaultValues: true, generateRandomNumbers: false, overrideArraySize: 2 })).toEqual({
       name: '',
       number: 0,
       enabled: false,
@@ -314,7 +314,7 @@ describe('schemaDefaults: Zod 4 defaults and prefaults', () => {
         .transform((value) => value.length),
       nonoptional: z.string().default('required').optional().nonoptional(),
     })
-    expect(schemaDefaults(schema, { stripDefaultValues: true })).toEqual({
+    expect(instantiateSchema(schema, { stripDefaultValues: true })).toEqual({
       tuple: [''],
       union: '',
       intersection: { a: '', b: '' },
@@ -327,16 +327,16 @@ describe('schemaDefaults: Zod 4 defaults and prefaults', () => {
 
   test('preserves catch behavior when defaults are stripped', () => {
     const schema = z.number().default(7).catch(9)
-    expect(schemaDefaults(schema)).toBe(7)
-    expect(schemaDefaults(schema, { stripDefaultValues: true })).toBe(9)
+    expect(instantiateSchema(schema)).toBe(7)
+    expect(instantiateSchema(schema, { stripDefaultValues: true })).toBe(9)
     expect(schema.parse(undefined)).toBe(7)
   })
 })
 
-describe('schemaDefaults: transforms, preprocessors and catches', () => {
+describe('instantiateSchema: transforms, preprocessors and catches', () => {
   test('returns transformed output rather than the input placeholder', () => {
     const schema = z.string().transform((value) => value.length)
-    const result: number = schemaDefaults(schema)
+    const result: number = instantiateSchema(schema)
     expect(result).toBe(0)
   })
 
@@ -344,7 +344,7 @@ describe('schemaDefaults: transforms, preprocessors and catches', () => {
     const inner = jest.fn((value: string) => `(${value})`)
     const outer = jest.fn((value: string) => value.length)
     const schema = z.object({ name: z.string().transform(inner) }).transform(({ name }) => outer(name))
-    expect(schemaDefaults(schema)).toBe(2)
+    expect(instantiateSchema(schema)).toBe(2)
     expect(inner).toHaveBeenCalledTimes(1)
     expect(outer).toHaveBeenCalledTimes(1)
     expect(inner).toHaveBeenCalledWith('', expect.anything())
@@ -356,20 +356,20 @@ describe('schemaDefaults: transforms, preprocessors and catches', () => {
       .default('tuna')
       .transform((value) => value.length)
       .pipe(z.number().transform((value) => value * 2))
-    expect(schemaDefaults(schema)).toBe(8)
+    expect(instantiateSchema(schema)).toBe(8)
   })
 
   test('resolves defaults inside objects parsed by a pipe once', () => {
     const factory = jest.fn(() => 'Tuna')
     const schema = z.object({ name: z.string().default(factory) }).transform(({ name }) => name.length)
-    expect(schemaDefaults(schema)).toBe(4)
+    expect(instantiateSchema(schema)).toBe(4)
     expect(factory).toHaveBeenCalledTimes(1)
   })
 
   test('supports standalone transforms and preprocessing undefined input', () => {
-    expect(schemaDefaults(z.transform(() => 'transformed'))).toBe('transformed')
+    expect(instantiateSchema(z.transform(() => 'transformed'))).toBe('transformed')
     expect(
-      schemaDefaults(
+      instantiateSchema(
         z.preprocess(
           (value) => value ?? 'prefilled',
           z.string().transform((value) => value.length),
@@ -381,7 +381,7 @@ describe('schemaDefaults: transforms, preprocessors and catches', () => {
   test('runs codec decoding and validates the output', () => {
     const decode = jest.fn((value: string) => value.length)
     const schema = z.codec(z.string().default('tuna'), z.number(), { decode, encode: String })
-    expect(schemaDefaults(schema)).toBe(4)
+    expect(instantiateSchema(schema)).toBe(4)
     expect(decode).toHaveBeenCalledTimes(1)
   })
 
@@ -391,21 +391,21 @@ describe('schemaDefaults: transforms, preprocessors and catches', () => {
       expect(ctx.error.issues[0]).toMatchObject({ code: 'invalid_type', expected: 'number' })
       return 42
     })
-    expect(schemaDefaults(z.number().catch(fallback))).toBe(42)
+    expect(instantiateSchema(z.number().catch(fallback))).toBe(42)
     expect(fallback).toHaveBeenCalledTimes(1)
   })
 
   test('does not use catch when undefined is accepted or a default succeeds', () => {
     const fallback = jest.fn(() => 42)
-    expect(schemaDefaults(z.number().optional().catch(fallback))).toBeUndefined()
-    expect(schemaDefaults(z.number().default(7).catch(fallback))).toBe(7)
+    expect(instantiateSchema(z.number().optional().catch(fallback))).toBeUndefined()
+    expect(instantiateSchema(z.number().default(7).catch(fallback))).toBe(7)
     expect(fallback).not.toHaveBeenCalled()
   })
 
   test('regenerates catch fallback values', () => {
     let value = 0
     const schema = z.number().catch(() => ++value)
-    expect(schemaDefaults(z.array(schema), { overrideArraySize: 2 })).toEqual([1, 2])
+    expect(instantiateSchema(z.array(schema), { overrideArraySize: 2 })).toEqual([1, 2])
   })
 
   test('propagates validation issues raised by transforms and pipes', () => {
@@ -413,16 +413,16 @@ describe('schemaDefaults: transforms, preprocessors and catches', () => {
       .string()
       .transform((value) => value.length)
       .pipe(z.number().positive())
-    expect(() => schemaDefaults(schema)).toThrow()
-    expect(() => schemaDefaults(z.string().min(5).prefault('x'))).toThrow()
+    expect(() => instantiateSchema(schema)).toThrow()
+    expect(() => instantiateSchema(z.string().min(5).prefault('x'))).toThrow()
   })
 
   test('rejects async transformations through synchronous parsing', () => {
-    expect(() => schemaDefaults(z.string().transform(async (value) => value.length))).toThrow(/synchronous|Promise|async/i)
+    expect(() => instantiateSchema(z.string().transform(async (value) => value.length))).toThrow(/synchronous|Promise|async/i)
   })
 })
 
-describe('schemaDefaults: primitives and schema structure', () => {
+describe('instantiateSchema: primitives and schema structure', () => {
   test.each([
     ['string', z.string(), ''],
     ['boolean', z.boolean(), false],
@@ -435,34 +435,34 @@ describe('schemaDefaults: primitives and schema structure', () => {
     ['custom', z.custom(), undefined],
     ['nan', z.nan(), NaN],
   ])('generates the %s placeholder', (_name, schema, expected) => {
-    expect(schemaDefaults(schema)).toBe(expected)
+    expect(instantiateSchema(schema)).toBe(expected)
   })
 
   test('creates symbols and dates', () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-01-02T03:04:05Z'))
-    expect(typeof schemaDefaults(z.symbol())).toBe('symbol')
-    expect(schemaDefaults(z.date())).toEqual(new Date('2026-01-02T03:04:05Z'))
+    expect(typeof instantiateSchema(z.symbol())).toBe('symbol')
+    expect(instantiateSchema(z.date())).toEqual(new Date('2026-01-02T03:04:05Z'))
   })
 
   test.each([z.uuid(), z.string().uuid()])('recognizes top-level and attached UUID formats', (schema) => {
-    const value = schemaDefaults(schema)
+    const value = instantiateSchema(schema)
     expect(schema.safeParse(value).success).toBe(true)
-    expect(schemaDefaults(schema, { stripDefaultValues: true })).toBe('')
+    expect(instantiateSchema(schema, { stripDefaultValues: true })).toBe('')
   })
 
   test('does not claim to satisfy arbitrary string constraints', () => {
     const schema = z.string().min(5)
-    expect(schemaDefaults(schema)).toBe('')
-    expect(schema.safeParse(schemaDefaults(schema)).success).toBe(false)
+    expect(instantiateSchema(schema)).toBe('')
+    expect(schema.safeParse(instantiateSchema(schema)).success).toBe(false)
   })
 
   test.each([z.object({}), z.strictObject({}), z.looseObject({})])('generates empty object shapes', (schema) => {
-    expect(schemaDefaults(schema)).toStrictEqual({})
+    expect(instantiateSchema(schema)).toStrictEqual({})
   })
 
   test('retains keys explicitly generated as undefined, including special property names', () => {
     const schema = z.object({ ['__proto__']: z.string(), constructor: z.string(), optional: z.string().optional() })
-    const result = schemaDefaults(schema, { instantiate_Optional_PrimitiveProps: false })
+    const result = instantiateSchema(schema, { instantiate_Optional_PrimitiveProps: false })
     expect(Object.prototype.hasOwnProperty.call(result, 'optional')).toBe(true)
     expect(Object.prototype.hasOwnProperty.call(result, '__proto__')).toBe(true)
     expect(Object.getPrototypeOf(result)).toBe(Object.prototype)
@@ -471,29 +471,29 @@ describe('schemaDefaults: primitives and schema structure', () => {
 
   test('generates independent object and array instances', () => {
     const schema = z.array(z.object({ list: z.array(z.string()) }))
-    const result = schemaDefaults(schema, { overrideArraySize: 2 })
+    const result = instantiateSchema(schema, { overrideArraySize: 2 })
     result[0].list.push('changed')
     expect(result[1].list).toEqual(['', ''])
-    expect(schemaDefaults(schema, { overrideArraySize: 2 })[0].list).toEqual(['', ''])
+    expect(instantiateSchema(schema, { overrideArraySize: 2 })[0].list).toEqual(['', ''])
   })
 
   test('supports fixed, empty and rest tuples', () => {
-    expect(schemaDefaults(z.tuple([]))).toEqual([])
-    expect(schemaDefaults(z.tuple([z.string(), z.number().default(7), z.boolean()], z.string()))).toEqual(['', 7, false])
+    expect(instantiateSchema(z.tuple([]))).toEqual([])
+    expect(instantiateSchema(z.tuple([z.string(), z.number().default(7), z.boolean()], z.string()))).toEqual(['', 7, false])
   })
 
   test('freezes readonly outputs without freezing unwrapped nested objects', () => {
     const schema = z.object({ child: z.object({ name: z.string() }) }).readonly()
-    const value = schemaDefaults(schema)
+    const value = instantiateSchema(schema)
     expect(Object.isFrozen(value)).toBe(true)
     expect(Object.isFrozen(value.child)).toBe(false)
-    expect(Object.isFrozen(schemaDefaults(z.array(z.string()).readonly()))).toBe(true)
-    expect(schemaDefaults(z.string().readonly())).toBe('')
+    expect(Object.isFrozen(instantiateSchema(z.array(z.string()).readonly()))).toBe(true)
+    expect(instantiateSchema(z.string().readonly())).toBe('')
   })
 
   test('nonoptional wrappers require a generated value', () => {
-    expect(schemaDefaults(z.string().optional().nonoptional(), { instantiate_Optional_PrimitiveProps: false })).toBe('')
-    expect(() => schemaDefaults(z.undefined().nonoptional())).toThrow('Cannot generate a nonoptional value')
+    expect(instantiateSchema(z.string().optional().nonoptional(), { instantiate_Optional_PrimitiveProps: false })).toBe('')
+    expect(() => instantiateSchema(z.undefined().nonoptional())).toThrow('Cannot generate a nonoptional value')
   })
 
   test.each([
@@ -506,20 +506,20 @@ describe('schemaDefaults: primitives and schema structure', () => {
   ])('reports unsupported %s schemas without console output', (type, schema) => {
     const log = jest.spyOn(console, 'log').mockImplementation(() => {})
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {})
-    expect(() => schemaDefaults(schema)).toThrow(`[SchemaDefaults]: Unsupported type ${type}`)
+    expect(() => instantiateSchema(schema)).toThrow(`[InstantiateSchema]: Unsupported type ${type}`)
     expect(log).not.toHaveBeenCalled()
     expect(warn).not.toHaveBeenCalled()
   })
 })
 
-describe('schemaDefaults: options', () => {
+describe('instantiateSchema: options', () => {
   test.each([0, 1, 3, 2.9, -1, NaN, Infinity, -Infinity])('normalizes array size %p', (size) => {
     const expected = Number.isFinite(size) && size >= 0 ? Math.floor(size) : DEFAULT_ARRAY_SIZE
-    expect(schemaDefaults(z.array(z.string()), { overrideArraySize: size })).toEqual(Array(expected).fill(''))
+    expect(instantiateSchema(z.array(z.string()), { overrideArraySize: size })).toEqual(Array(expected).fill(''))
   })
 
   test('passes array size options to every nested array', () => {
-    expect(schemaDefaults(z.array(z.array(z.string())), { overrideArraySize: 2 })).toEqual([
+    expect(instantiateSchema(z.array(z.array(z.string())), { overrideArraySize: 2 })).toEqual([
       ['', ''],
       ['', ''],
     ])
@@ -527,7 +527,7 @@ describe('schemaDefaults: options', () => {
 
   test('undefined options retain defaults and options are not mutated', () => {
     const options = Object.freeze({ instantiate_Optional_Objects: undefined, instantiate_Optional_PrimitiveProps: undefined, overrideArraySize: undefined })
-    expect(schemaDefaults(z.object({ value: z.string().optional(), list: z.array(z.string()).optional() }), options)).toEqual({ value: '', list: Array(DEFAULT_ARRAY_SIZE).fill('') })
+    expect(instantiateSchema(z.object({ value: z.string().optional(), list: z.array(z.string()).optional() }), options)).toEqual({ value: '', list: Array(DEFAULT_ARRAY_SIZE).fill('') })
     expect(options.overrideArraySize).toBeUndefined()
   })
 
@@ -537,10 +537,10 @@ describe('schemaDefaults: options', () => {
     ['array', z.array(z.string()), 'instantiate_Optional_Objects', 'instantiate_Nullable_Objects', ['', '']],
     ['tuple', z.tuple([z.string()]), 'instantiate_Optional_Objects', 'instantiate_Nullable_Objects', ['']],
   ] as const)('applies optional/nullable options independently to a %s', (_name, schema, optionalKey, nullableKey, expected) => {
-    expect(schemaDefaults(schema.optional(), { overrideArraySize: 2 })).toEqual(expected)
-    expect(schemaDefaults(schema.nullable(), { overrideArraySize: 2 })).toEqual(expected)
-    expect(schemaDefaults(schema.optional(), { [optionalKey]: false })).toBeUndefined()
-    expect(schemaDefaults(schema.nullable(), { [nullableKey]: false })).toBeNull()
+    expect(instantiateSchema(schema.optional(), { overrideArraySize: 2 })).toEqual(expected)
+    expect(instantiateSchema(schema.nullable(), { overrideArraySize: 2 })).toEqual(expected)
+    expect(instantiateSchema(schema.optional(), { [optionalKey]: false })).toBeUndefined()
+    expect(instantiateSchema(schema.nullable(), { [nullableKey]: false })).toBeNull()
   })
 
   test.each([
@@ -553,27 +553,27 @@ describe('schemaDefaults: options', () => {
       .pipe(z.object({ name: z.string() }))
       .optional(),
   ])('detects object-like values through composition wrappers', (schema) => {
-    expect(schemaDefaults(schema, { instantiate_Optional_Objects: false, instantiate_Optional_PrimitiveProps: true })).toBeUndefined()
+    expect(instantiateSchema(schema, { instantiate_Optional_Objects: false, instantiate_Optional_PrimitiveProps: true })).toBeUndefined()
   })
 
   test('nullable object settings survive additional wrappers', () => {
     const schema = z.object({ name: z.string() }).readonly().optional().nullable()
-    expect(schemaDefaults(schema, { instantiate_Nullable_Objects: false, instantiate_Nullable_PrimitiveProps: true })).toBeNull()
+    expect(instantiateSchema(schema, { instantiate_Nullable_Objects: false, instantiate_Nullable_PrimitiveProps: true })).toBeNull()
   })
 
   test('options do not leak between calls', () => {
     const schema = z.array(z.string().optional())
-    expect(schemaDefaults(schema, { overrideArraySize: 0, instantiate_Optional_PrimitiveProps: false })).toEqual([])
-    expect(schemaDefaults(schema)).toEqual(Array(DEFAULT_ARRAY_SIZE).fill(''))
+    expect(instantiateSchema(schema, { overrideArraySize: 0, instantiate_Optional_PrimitiveProps: false })).toEqual([])
+    expect(instantiateSchema(schema)).toEqual(Array(DEFAULT_ARRAY_SIZE).fill(''))
   })
 })
 
-describe('schemaDefaults: selection and intersections', () => {
+describe('instantiateSchema: selection and intersections', () => {
   test.each([0, 0.49, 0.99])('selects enum entries correctly with random value %p', (random) => {
     jest.spyOn(Math, 'random').mockReturnValue(random)
     const schema = z.enum(['one', 'two', 'three'])
-    expect(schemaDefaults(schema)).toBe(schema.options[Math.floor(random * 3)])
-    expect(schemaDefaults(z.enum(['only']))).toBe('only')
+    expect(instantiateSchema(schema)).toBe(schema.options[Math.floor(random * 3)])
+    expect(instantiateSchema(z.enum(['only']))).toBe('only')
   })
 
   test.each([0, 0.5, 0.99])('excludes numeric TypeScript enum reverse mappings at %p', (random) => {
@@ -584,8 +584,8 @@ describe('schemaDefaults: selection and intersections', () => {
     }
     jest.spyOn(Math, 'random').mockReturnValue(random)
     const schema = z.enum(Status)
-    expect(schemaDefaults(schema)).toBe(Math.floor(random * 3))
-    expect(schema.safeParse(schemaDefaults(schema)).success).toBe(true)
+    expect(instantiateSchema(schema)).toBe(Math.floor(random * 3))
+    expect(schema.safeParse(instantiateSchema(schema)).success).toBe(true)
   })
 
   test('supports enum-like objects, string enums, and multi-value literals', () => {
@@ -594,26 +594,26 @@ describe('schemaDefaults: selection and intersections', () => {
       Active = 'active',
     }
     jest.spyOn(Math, 'random').mockReturnValue(0.99)
-    expect(schemaDefaults(z.enum(Status))).toBe('active')
-    expect(schemaDefaults(z.enum({ First: 10, Second: 20 }))).toBe(20)
-    expect(schemaDefaults(z.literal(['first', 'second']))).toBe('first')
-    expect(schemaDefaults(z.literal(false))).toBe(false)
-    expect(schemaDefaults(z.literal(0))).toBe(0)
-    expect(schemaDefaults(z.literal(null))).toBeNull()
+    expect(instantiateSchema(z.enum(Status))).toBe('active')
+    expect(instantiateSchema(z.enum({ First: 10, Second: 20 }))).toBe(20)
+    expect(instantiateSchema(z.literal(['first', 'second']))).toBe('first')
+    expect(instantiateSchema(z.literal(false))).toBe(false)
+    expect(instantiateSchema(z.literal(0))).toBe(0)
+    expect(instantiateSchema(z.literal(null))).toBeNull()
   })
 
   test.each([0, 0.99])('selects a union branch at %p', (random) => {
     jest.spyOn(Math, 'random').mockReturnValue(random)
-    expect(schemaDefaults(z.union([z.literal('left'), z.literal('right')]))).toBe(random === 0 ? 'left' : 'right')
+    expect(instantiateSchema(z.union([z.literal('left'), z.literal('right')]))).toBe(random === 0 ? 'left' : 'right')
     const schema = z.discriminatedUnion('kind', [z.object({ kind: z.literal('left'), name: z.string() }), z.object({ kind: z.literal('right'), enabled: z.boolean() })])
-    const result = schemaDefaults(schema)
+    const result = instantiateSchema(schema)
     expect(result).toEqual(random === 0 ? { kind: 'left', name: '' } : { kind: 'right', enabled: false })
     expect(schema.safeParse(result).success).toBe(true)
   })
 
   test('reports empty unions and enums clearly', () => {
-    expect(() => schemaDefaults(z.union([]))).toThrow('Cannot select a value from an empty schema')
-    expect(() => schemaDefaults(z.enum([]))).toThrow('Cannot select a value from an empty schema')
+    expect(() => instantiateSchema(z.union([]))).toThrow('Cannot select a value from an empty schema')
+    expect(() => instantiateSchema(z.enum([]))).toThrow('Cannot select a value from an empty schema')
   })
 
   test('deeply merges intersected objects and shared arrays', () => {
@@ -621,7 +621,7 @@ describe('schemaDefaults: selection and intersections', () => {
       z.object({ left: z.string(), shared: z.object({ a: z.string() }), list: z.array(z.object({ a: z.string() })) }),
       z.object({ right: z.boolean(), shared: z.object({ b: z.boolean() }), list: z.array(z.object({ b: z.boolean() })) }),
     )
-    const result = schemaDefaults(schema, { overrideArraySize: 1 })
+    const result = instantiateSchema(schema, { overrideArraySize: 1 })
     expect(result).toEqual({ left: '', right: false, shared: { a: '', b: false }, list: [{ a: '', b: false }] })
     expect(schema.safeParse(result).success).toBe(true)
   })
@@ -630,11 +630,11 @@ describe('schemaDefaults: selection and intersections', () => {
     const factory = jest.fn(() => 'tuna')
     const transform = jest.fn((name: string) => name.length)
     const schema = z.intersection(z.object({ name: z.string().default(factory).transform(transform) }), z.object({ active: z.boolean() }))
-    expect(schemaDefaults(schema)).toEqual({ name: 4, active: false })
+    expect(instantiateSchema(schema)).toEqual({ name: 4, active: false })
     expect(factory).toHaveBeenCalledTimes(1)
     expect(transform).toHaveBeenCalledTimes(1)
     expect(
-      schemaDefaults(
+      instantiateSchema(
         z.intersection(
           z.string().transform((value) => value.length),
           z.string().transform((value) => value.length),
@@ -646,10 +646,10 @@ describe('schemaDefaults: selection and intersections', () => {
   test('merges root array intersections and uses their raw inputs inside a pipe', () => {
     const transform = jest.fn((value: string) => value.length)
     const schema = z.intersection(z.array(z.object({ name: z.string().transform(transform) })), z.array(z.object({ active: z.boolean() })))
-    expect(schemaDefaults(schema, { overrideArraySize: 1 })).toEqual([{ name: 0, active: false }])
+    expect(instantiateSchema(schema, { overrideArraySize: 1 })).toEqual([{ name: 0, active: false }])
     transform.mockClear()
     expect(
-      schemaDefaults(
+      instantiateSchema(
         schema.transform((rows) => rows[0]),
         { overrideArraySize: 1 },
       ),
@@ -658,21 +658,21 @@ describe('schemaDefaults: selection and intersections', () => {
   })
 
   test('preserves primitive, null and date intersections', () => {
-    expect(schemaDefaults(z.intersection(z.string(), z.string()))).toBe('')
-    expect(schemaDefaults(z.intersection(z.null(), z.null()))).toBeNull()
+    expect(instantiateSchema(z.intersection(z.string(), z.string()))).toBe('')
+    expect(instantiateSchema(z.intersection(z.null(), z.null()))).toBeNull()
     jest.useFakeTimers().setSystemTime(new Date('2026-01-01Z'))
-    expect(schemaDefaults(z.intersection(z.date(), z.date()))).toEqual(new Date('2026-01-01Z'))
+    expect(instantiateSchema(z.intersection(z.date(), z.date()))).toEqual(new Date('2026-01-01Z'))
     jest.spyOn(Math, 'random').mockReturnValueOnce(0).mockReturnValueOnce(0.5)
-    expect(schemaDefaults(z.intersection(z.number(), z.number()))).toBe(0)
+    expect(instantiateSchema(z.intersection(z.number(), z.number()))).toBe(0)
   })
 
   test('rejects incompatible intersection defaults rather than overwriting them', () => {
-    expect(() => schemaDefaults(z.intersection(z.object({ shared: z.literal('a') }), z.object({ shared: z.literal('b') })))).toThrow('Cannot merge incompatible intersection defaults')
-    expect(() => schemaDefaults(z.intersection(z.literal('a'), z.literal('b')))).toThrow('Cannot merge incompatible intersection defaults')
+    expect(() => instantiateSchema(z.intersection(z.object({ shared: z.literal('a') }), z.object({ shared: z.literal('b') })))).toThrow('Cannot merge incompatible intersection defaults')
+    expect(() => instantiateSchema(z.intersection(z.literal('a'), z.literal('b')))).toThrow('Cannot merge incompatible intersection defaults')
   })
 })
 
-describe('schemaDefaults: number bounds', () => {
+describe('instantiateSchema: number bounds', () => {
   const schemas = [
     z.number(),
     z.number().min(200),
@@ -706,19 +706,19 @@ describe('schemaDefaults: number bounds', () => {
     const random = jest.spyOn(Math, 'random')
     for (const ratio of [0, 0.5, 0.9999999999999999]) {
       random.mockReturnValue(ratio)
-      const value = schemaDefaults(schema)
+      const value = instantiateSchema(schema)
       expect(Number.isFinite(value)).toBe(true)
       expect(schema.safeParse(value).success).toBe(true)
     }
-    expect(schema.safeParse(schemaDefaults(schema, { generateRandomNumbers: false })).success).toBe(true)
+    expect(schema.safeParse(instantiateSchema(schema, { generateRandomNumbers: false })).success).toBe(true)
   })
 
   test('uses zero for unconstrained deterministic numbers and the tightest minimum otherwise', () => {
-    expect(schemaDefaults(z.number(), { generateRandomNumbers: false })).toBe(0)
-    expect(schemaDefaults(z.int(), { generateRandomNumbers: false })).toBe(0)
-    expect(schemaDefaults(z.number().min(10).min(2), { generateRandomNumbers: false })).toBe(10)
-    expect(schemaDefaults(z.number().min(2).min(10), { generateRandomNumbers: false })).toBe(10)
-    expect(schemaDefaults(z.number().max(-3), { generateRandomNumbers: false })).toBe(-3)
+    expect(instantiateSchema(z.number(), { generateRandomNumbers: false })).toBe(0)
+    expect(instantiateSchema(z.int(), { generateRandomNumbers: false })).toBe(0)
+    expect(instantiateSchema(z.number().min(10).min(2), { generateRandomNumbers: false })).toBe(10)
+    expect(instantiateSchema(z.number().min(2).min(10), { generateRandomNumbers: false })).toBe(10)
+    expect(instantiateSchema(z.number().max(-3), { generateRandomNumbers: false })).toBe(-3)
   })
 
   test.each([
@@ -734,19 +734,19 @@ describe('schemaDefaults: number bounds', () => {
     ['fractional multiples', z.number().multipleOf(0.5), 1.5],
   ] as const)('rounds fractional bounds only when required by %s', (_name, base, expected) => {
     const schema = base.min(1.5).max(2.5)
-    const value = schemaDefaults(schema, { generateRandomNumbers: false })
+    const value = instantiateSchema(schema, { generateRandomNumbers: false })
     expect(value).toBe(expected)
     expect(schema.safeParse(value).success).toBe(true)
   })
 
   test('can select the full numeric interval, including its maximum', () => {
     jest.spyOn(Math, 'random').mockReturnValue(0.999999)
-    expect(schemaDefaults(z.number().min(1000).max(2000))).toBe(2000)
+    expect(instantiateSchema(z.number().min(1000).max(2000))).toBe(2000)
   })
 
   test('does not use randomness for deterministic numbers', () => {
     const random = jest.spyOn(Math, 'random')
-    expect(schemaDefaults(z.number(), { generateRandomNumbers: false })).toBe(0)
+    expect(instantiateSchema(z.number(), { generateRandomNumbers: false })).toBe(0)
     expect(random).not.toHaveBeenCalled()
   })
 
@@ -758,6 +758,6 @@ describe('schemaDefaults: number bounds', () => {
       .lt(1 + Number.EPSILON),
     z.number().int().min(0.1).max(0.9),
   ])('rejects ranges without a representable value', (schema) => {
-    expect(() => schemaDefaults(schema)).toThrow('Cannot generate a number within the schema bounds')
+    expect(() => instantiateSchema(schema)).toThrow('Cannot generate a number within the schema bounds')
   })
 })

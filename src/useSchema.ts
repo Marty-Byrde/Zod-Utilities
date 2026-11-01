@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { stripZodDefault } from '@/src/stripZodDefaultValues'
-import schemaDefaults, { SchemaOptionalProps } from '@/src/schemaDefaults'
+import { instantiateSchema, SchemaOptionalProps } from '@/src/instantiateSchema'
 
 type SchemaUtils<Type> = {
   validate: (object: unknown) => Type
@@ -31,7 +31,7 @@ export function useSchema(schema: z.ZodType, name?: string) {
   const validate = (object: unknown) => strippedSchema.parse(object)
 
   function instantiate(options?: SchemaOptionalProps) {
-    return schemaDefaults(schema, options)
+    return instantiateSchema(schema, options)
   }
 
   const safeParse = (object: unknown) => strippedSchema.safeParse(object)

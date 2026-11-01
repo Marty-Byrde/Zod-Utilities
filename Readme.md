@@ -5,7 +5,7 @@ TypeScript utilities for working with Zod 4 schemas: generate dummy data, valida
 ## Features
 
 - `useSchema`: bind validation, safe parsing, and dummy data generation to a schema.
-- `schemaDefaults`: generate default values for a schema.
+- `instantiateSchema`: create values from a schema using explicit defaults and generated placeholders.
 - `stripZodDefaults`: recursively remove `.default()` wrappers from supported schema types.
 - `stripEffects`: simplify schemas by removing pipes and transforms, with options to remove built-in checks and omit object keys.
 
@@ -24,7 +24,7 @@ pnpm install
 Import the public utilities from the package root:
 
 ```ts
-import { schemaDefaults, stripEffects, stripZodDefaults, useSchema } from '@marty-byrde/zod-utilities'
+import { instantiateSchema, stripEffects, stripZodDefaults, useSchema } from '@marty-byrde/zod-utilities'
 ```
 
 For example:
@@ -61,7 +61,7 @@ Pipes and codecs reduce to their input schema; preprocessors reduce to their out
 
 Dummy data generation supports options such as `overrideArraySize`, `generateRandomNumbers`, and whether to instantiate optional or nullable values. Generated values are placeholders and may need adjustment to satisfy schema constraints.
 
-`schemaDefaults` follows [Zod 4 default and prefault semantics](https://zod.dev/api#defaults): defaults return output values directly, while prefaults are parsed. Explicit defaults still apply inside optional fields when optional instantiation is disabled. Transforms, pipes, codecs, intersections, prefaults, and catches use synchronous parsing; they can throw if generated inputs fail validation. Async effects are unsupported.
+`instantiateSchema` follows [Zod 4 default and prefault semantics](https://zod.dev/api#defaults): defaults return output values directly, while prefaults are parsed. Explicit defaults still apply inside optional fields when optional instantiation is disabled. Transforms, pipes, codecs, intersections, prefaults, and catches use synchronous parsing; they can throw if generated inputs fail validation. Async effects are unsupported.
 
 Set `stripDefaultValues: true` to ignore `.default()` and `.prefault()` values recursively and generate empty UUID placeholders. Catch fallbacks remain active, and the original schema is preserved. Schema types without a generation strategy, including lazy schemas, records, maps, sets, and promises, throw an explicit unsupported-type error.
 

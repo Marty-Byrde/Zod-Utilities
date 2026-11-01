@@ -36,7 +36,7 @@ const DEFAULT_OPTIONS: ResolvedOptions = {
  * Transforms, intersections, prefaults and catches use synchronous Zod parsing and may throw;
  * async schemas and unsupported schema types cannot be synthesized here.
  */
-export default function schemaDefaults<Schema extends z.ZodType>(schema: Schema, userOptions?: SchemaOptionalProps): z.output<Schema> {
+export function instantiateSchema<Schema extends z.ZodType>(schema: Schema, userOptions?: SchemaOptionalProps): z.output<Schema> {
   const options = resolveOptions(userOptions)
   const root = options.stripDefaultValues ? removeDefaults(schema) : schema
 
@@ -138,12 +138,12 @@ export default function schemaDefaults<Schema extends z.ZodType>(schema: Schema,
       }
       case 'nonoptional': {
         const value = generate(def.innerType, input, true)
-        if (!input && value === undefined) throw new Error('[SchemaDefaults]: Cannot generate a nonoptional value from undefined')
+        if (!input && value === undefined) throw new Error('[InstantiateSchema]: Cannot generate a nonoptional value from undefined')
         return value
       }
 
       default:
-        throw new Error(`[SchemaDefaults]: Unsupported type ${def.type}`)
+        throw new Error(`[InstantiateSchema]: Unsupported type ${def.type}`)
     }
   }
 
@@ -151,7 +151,7 @@ export default function schemaDefaults<Schema extends z.ZodType>(schema: Schema,
 }
 
 function pick<T>(values: readonly T[]): T {
-  if (values.length === 0) throw new Error('[SchemaDefaults]: Cannot select a value from an empty schema')
+  if (values.length === 0) throw new Error('[InstantiateSchema]: Cannot select a value from an empty schema')
   return values[Math.floor(Math.random() * values.length)]
 }
 
@@ -225,7 +225,7 @@ function mergeDefaults(left: unknown, right: unknown): unknown {
     )
   }
   if (Array.isArray(left) && Array.isArray(right) && left.length === right.length) return left.map((value, index) => mergeDefaults(value, right[index]))
-  throw new Error('[SchemaDefaults]: Cannot merge incompatible intersection defaults')
+  throw new Error('[InstantiateSchema]: Cannot merge incompatible intersection defaults')
 }
 
 /** The adjacent representable number, including for fractional exclusive bounds. */
@@ -267,7 +267,7 @@ function numberDefault(schema: z.ZodNumber, random: boolean): number {
     min = Math.ceil(min)
     max = Math.floor(max)
   }
-  if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) throw new Error('[SchemaDefaults]: Cannot generate a number within the schema bounds')
+  if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) throw new Error('[InstantiateSchema]: Cannot generate a number within the schema bounds')
   if (!random || min === max) return min
   const lowInteger = Math.ceil(min)
   const highInteger = Math.floor(max)
