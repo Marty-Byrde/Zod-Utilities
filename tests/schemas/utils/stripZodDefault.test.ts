@@ -1,6 +1,5 @@
-import { stripZodDefaults } from '@/index'
+import { createSchemaUtils, stripZodDefaults } from '@/index'
 import { stripZodDefault } from '@/src/stripZodDefaultValues'
-import { useSchema } from '@/src/useSchema'
 import { z } from 'zod'
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false
@@ -455,13 +454,13 @@ describe('stripZodDefault: schema graphs and compatibility', () => {
     expect(stripZodDefault(z.coerce.string().default('fallback')).parse(undefined)).toBe('undefined')
   })
 
-  test('exposes the helper through the public alias and useSchema validation', () => {
+  test('exposes the helper through the public alias and createSchemaUtils validation', () => {
     expect(stripZodDefaults).toBe(stripZodDefault)
-    const schema = z.strictObject({ name: z.string().default('fallback') }).refine(({ name }) => name !== 'blocked')
-    const utils = useSchema(schema, 'User')
-    expect(utils.safeParseUser({}).success).toBe(false)
-    expect(utils.safeParseUser({ name: 'blocked' }).success).toBe(false)
-    expect(utils.safeParseUser({ name: 'value', extra: 1 }).success).toBe(false)
+    const UserSchema = z.strictObject({ name: z.string().default('fallback') }).refine(({ name }) => name !== 'blocked')
+    const utils = createSchemaUtils({ UserSchema })
+    expect(utils.safeValidateUser({}).success).toBe(false)
+    expect(utils.safeValidateUser({ name: 'blocked' }).success).toBe(false)
+    expect(utils.safeValidateUser({ name: 'value', extra: 1 }).success).toBe(false)
     expect(utils.validateUser({ name: 'value' })).toEqual({ name: 'value' })
   })
 })
