@@ -39,15 +39,15 @@ function appendSchemaName<Utilities extends Record<string, unknown>, Name extend
  * catch fallbacks and object key policies still apply. Parsing uses the original
  * schema with defaults intact. All methods are synchronous.
  */
-export function useSchema<Schema extends z.ZodType, const Name extends string>(schemas: Record<Name, Schema>): NamedSchemaUtils<Schema, SchemaName<Name>>
+export function createSchemaUtils<Schema extends z.ZodType, const Name extends string>(schemas: Record<Name, Schema>): NamedSchemaUtils<Schema, SchemaName<Name>>
 
 /** Infers output types from a schema and returns unnamed methods. */
-export function useSchema<Schema extends z.ZodType>(schema: Schema): InferredSchemaUtils<Schema>
+export function createSchemaUtils<Schema extends z.ZodType>(schema: Schema): InferredSchemaUtils<Schema>
 
 /** Retains support for an explicit output type argument. */
-export function useSchema<Type>(schema: z.ZodType): SchemaUtils<Type>
+export function createSchemaUtils<Type>(schema: z.ZodType): SchemaUtils<Type>
 
-export function useSchema(schemaOrSchemas: z.ZodType | Record<string, z.ZodType>): InferredSchemaUtils<z.ZodType> | NamedSchemaUtils<z.ZodType, string> {
+export function createSchemaUtils(schemaOrSchemas: z.ZodType | Record<string, z.ZodType>): InferredSchemaUtils<z.ZodType> | NamedSchemaUtils<z.ZodType, string> {
   let schema: z.ZodType
   let name: string | undefined
 
@@ -56,7 +56,7 @@ export function useSchema(schemaOrSchemas: z.ZodType | Record<string, z.ZodType>
   } else {
     const keys = Object.keys(schemaOrSchemas)
     if (keys.length !== 1) {
-      throw new Error('useSchema expects an object containing exactly one schema')
+      throw new Error('createSchemaUtils expects an object containing exactly one schema')
     }
 
     const key = keys[0]

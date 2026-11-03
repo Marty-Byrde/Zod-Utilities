@@ -1,16 +1,16 @@
 import { z } from 'zod'
-import { useSchema } from '@/src/useSchema'
+import { createSchemaUtils } from '@/src/createSchemaUtils'
 
 type Equal<Left, Right> = (<Type>() => Type extends Left ? 1 : 2) extends <Type>() => Type extends Right ? 1 : 2 ? true : false
 
-describe('useSchema', () => {
+describe('createSchemaUtils', () => {
   const ProductSchema = z.object({
     name: z.string().default('Product'),
     price: z.number(),
   })
 
   test('infers method names and output types from the schema entry', () => {
-    const utilities = useSchema({ ProductSchema })
+    const utilities = createSchemaUtils({ ProductSchema })
 
     expect(Object.keys(utilities).sort()).toEqual(['instantiateProduct', 'parseProduct', 'safeParseProduct', 'safeValidateProduct', 'validateProduct'])
     expect(utilities.instantiateProduct({ generateRandomNumbers: false })).toEqual({ name: 'Product', price: 0 })
@@ -34,8 +34,8 @@ describe('useSchema', () => {
 
   describe.each(['named', 'unnamed'] as const)('%s methods', (api) => {
     function bind<Schema extends z.ZodType>(schema: Schema) {
-      if (api === 'unnamed') return useSchema(schema)
-      const utilities = useSchema({ TestSchema: schema })
+      if (api === 'unnamed') return createSchemaUtils(schema)
+      const utilities = createSchemaUtils({ TestSchema: schema })
       return {
         validate: utilities.validateTest,
         safeValidate: utilities.safeValidateTest,
@@ -127,20 +127,20 @@ describe('useSchema', () => {
   })
 
   test('uses the object key and removes only a trailing Schema suffix', () => {
-    const aliased = useSchema({ OrderSchema: ProductSchema })
+    const aliased = createSchemaUtils({ OrderSchema: ProductSchema })
     expect(aliased.validateOrder({ name: 'Book', price: 12 })).toEqual({ name: 'Book', price: 12 })
 
-    const withoutSuffix = useSchema({ Product: ProductSchema })
+    const withoutSuffix = createSchemaUtils({ Product: ProductSchema })
     expect(withoutSuffix.instantiateProduct({ generateRandomNumbers: false })).toEqual({ name: 'Product', price: 0 })
 
-    const withInternalSuffix = useSchema({ SchemaProductSchema: ProductSchema })
+    const withInternalSuffix = createSchemaUtils({ SchemaProductSchema: ProductSchema })
     expect(withInternalSuffix.safeParseSchemaProduct({ name: 'Book', price: 12 }).success).toBe(true)
     expect(withInternalSuffix.safeValidateSchemaProduct({ price: 12 }).success).toBe(false)
     expect(withInternalSuffix.parseSchemaProduct({ price: 12 })).toEqual({ name: 'Product', price: 12 })
   })
 
   test('retains the unnamed API and explicit output type argument', () => {
-    const utilities = useSchema<z.infer<typeof ProductSchema>>(ProductSchema)
+    const utilities = createSchemaUtils<z.infer<typeof ProductSchema>>(ProductSchema)
     const { instantiate, validate: validate, safeValidate: safeValidate, parse, safeParse } = utilities
 
     expect(Object.keys(utilities).sort()).toEqual(['instantiate', 'parse', 'safeParse', 'safeValidate', 'validate'])
@@ -161,9 +161,9 @@ describe('useSchema', () => {
 
   test('infers separate validation output types when defaults wrap optional schemas', () => {
     const OptionalSchema = z.string().optional().default('fallback')
-    const named = useSchema({ OptionalSchema })
-    const unnamed = useSchema(OptionalSchema)
-    const object = useSchema(z.object({ value: z.string().optional().default('fallback') }))
+    const named = createSchemaUtils({ OptionalSchema })
+    const unnamed = createSchemaUtils(OptionalSchema)
+    const object = createSchemaUtils(z.object({ value: z.string().optional().default('fallback') }))
 
     const inferredTypes: [
       Equal<ReturnType<typeof named.validateOptional>, string | undefined>,
@@ -183,7 +183,7 @@ describe('useSchema', () => {
   })
 
   test('rejects empty objects and multiple schema entries', () => {
-    expect(() => useSchema({})).toThrow('exactly one schema')
-    expect(() => useSchema({ ProductSchema, OrderSchema: ProductSchema })).toThrow('exactly one schema')
+    expect(() => createSchemaUtils({})).toThrow('exactly one schema')
+    expect(() => createSchemaUtils({ ProductSchema, OrderSchema: ProductSchema })).toThrow('exactly one schema')
   })
 })

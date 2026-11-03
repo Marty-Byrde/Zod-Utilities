@@ -4,7 +4,7 @@ TypeScript utilities for working with Zod 4 schemas: generate dummy data, valida
 
 ## Features
 
-- `useSchema`: bind validation without defaults, parsing with defaults, and dummy data generation to a schema.
+- `createSchemaUtils`: bind validation without defaults, parsing with defaults, and dummy data generation to a schema.
 - `instantiateSchema`: create values from a schema using explicit defaults and generated placeholders.
 - `stripZodDefaults`: recursively remove `.default()` wrappers from supported schema types.
 - `stripEffects`: simplify schemas by removing pipes and transforms, with options to remove built-in checks and omit object keys.
@@ -24,14 +24,14 @@ pnpm install
 Import the public utilities from the package root:
 
 ```ts
-import { instantiateSchema, stripEffects, stripZodDefaults, useSchema } from '@marty-byrde/zod-utilities'
+import { instantiateSchema, stripEffects, stripZodDefaults, createSchemaUtils } from '@marty-byrde/zod-utilities'
 ```
 
 For example:
 
 ```ts
 import { z } from 'zod'
-import { useSchema } from '@marty-byrde/zod-utilities'
+import { createSchemaUtils } from '@marty-byrde/zod-utilities'
 
 const UserSchema = z.object({
   name: z.string().default('Anonymous'),
@@ -39,7 +39,7 @@ const UserSchema = z.object({
   active: z.boolean().default(true),
 })
 
-const { instantiateUser, validateUser, safeValidateUser, parseUser, safeParseUser } = useSchema({ UserSchema })
+const { instantiateUser, validateUser, safeValidateUser, parseUser, safeParseUser } = createSchemaUtils({ UserSchema })
 
 const user = instantiateUser({ generateRandomNumbers: false })
 // { name: 'Anonymous', age: 0, active: true }
@@ -66,9 +66,11 @@ Validation removes only `.default()` wrappers. It still parses data: transforms,
 
 `validate` / `safeValidate` distinguish validation without defaults from ordinary parsing in this package. These are project-specific names: [Zod 4.6's `validate`](https://zod.dev/blog/zod-4-6#validate) returns a boolean type guard, whereas this utility's `validate` returns parsed output and throws on validation failure. `parseWithoutDefaults` / `safeParseWithoutDefaults` would be alternative names that describe the current behavior more precisely and avoid that naming overlap, yet would make the utility function names too long. Removing `.default()` wrappers does not disable parsing or other fallback mechanisms. All methods are synchronous; safe methods return validation errors as results, while exceptions from user callbacks or unsupported async effects can still propagate.
 
-The unnamed API returns `instantiate`, `validate`, `safeValidate`, `parse`, and `safeParse`. `useSchema(UserSchema)` infers return types automatically, including optional validation outputs after defaults are removed. The explicit output type form `useSchema<User>(UserSchema)` remains available, where `User` is `z.infer<typeof UserSchema>`; that form uses the supplied type for all outputs.
+The unnamed API returns `instantiate`, `validate`, `safeValidate`, `parse`, and `safeParse`. `createSchemaUtils(UserSchema)` infers return types automatically, including optional validation outputs after defaults are removed. The explicit output type form `createSchemaUtils<User>(UserSchema)` remains available, where `User` is `z.infer<typeof UserSchema>`; that form uses the supplied type for all outputs.
 
-**Migration:** calls that previously used `safeParseUser` (or unnamed `safeParse`) to reject missing defaulted values must use `safeValidateUser` (or `safeValidate`). `safeParse` now follows the original schema and applies its defaults.
+**Migration:** `useSchema` has been renamed to `createSchemaUtils`; update imports and calls to use the new name. Its overloads and behavior are unchanged by the rename.
+
+Calls that previously used `safeParseUser` (or unnamed `safeParse`) to reject missing defaulted values must use `safeValidateUser` (or `safeValidate`). `safeParse` now follows the original schema and applies its defaults.
 
 `stripZodDefaults` removes `.default()` wrappers recursively while preserving validations, object key policies, tuple rest elements, transforms, codecs, and recursive schemas. Explicit `.optional()`, `.prefault()`, and `.catch()` behavior remains active; stripping defaults does not necessarily make a schema reject `undefined`. The original schema is preserved.
 
